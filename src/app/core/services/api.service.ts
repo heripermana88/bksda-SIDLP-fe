@@ -266,4 +266,10 @@ export class ApiService {
       }>(`${BASE}/qr`, { params: httpParams })
     );
   }
+
+  verifyNik(token: string, nik: string): Promise<{ verified: boolean }> {
+    return firstValueFrom(
+      this.http.post<{ verified: boolean }>(`${BASE}/lahan/${token}/verify-nik`, { nik })
+    );
+  }
 }
