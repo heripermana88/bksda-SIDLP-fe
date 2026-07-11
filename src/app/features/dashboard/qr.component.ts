@@ -20,6 +20,7 @@ interface QrListItem {
   token: string;
   isUsed: boolean;
   createdAt: string;
+  selected?: boolean;
 }
 
 @Component({
@@ -115,6 +116,11 @@ interface QrListItem {
       <div class="section-label">
         Riwayat Token
         <button class="btn-refresh" (click)="loadList()">↻ Refresh</button>
+        @if (selectedFromList().length > 0) {
+          <button class="btn btn-print reprint-btn" (click)="reprintSelected()" [disabled]="reprinting()">
+            {{ reprinting() ? '⏳ Menyiapkan...' : '🖨️ Print ' + selectedFromList().length + ' Token' }}
+          </button>
+        }
       </div>
 
       @if (listLoading()) {
@@ -124,12 +130,23 @@ interface QrListItem {
       } @else {
         <div class="list-table">
           <div class="list-head">
+            <span></span>
             <span>Token</span>
             <span>Status</span>
             <span>Dibuat</span>
           </div>
           @for (item of tokenList(); track item.token) {
-            <div class="list-row">
+            <div class="list-row" [class.row-used]="item.isUsed">
+              <span class="cb-wrap">
+                @if (!item.isUsed) {
+                  <input
+                    type="checkbox"
+                    [checked]="item.selected"
+                    (change)="toggleListSelect(item)"
+                    (click)="$event.stopPropagation()"
+                  />
+                }
+              </span>
               <span class="mono">{{ item.token }}</span>
               <span class="badge" [class]="item.isUsed ? 'badge-used' : 'badge-free'">
                 {{ item.isUsed ? 'Terpakai' : 'Tersedia' }}
@@ -138,13 +155,33 @@ interface QrListItem {
             </div>
           }
         </div>
-        <div class="list-total">Total: {{ listTotal() }} token</div>
+        <div class="list-footer">
+          <span class="list-total">Total: {{ listTotal() }} token</span>
+          @if (availableCount() > 0) {
+            <button class="btn-select-all" (click)="selectAllAvailable()">
+              Pilih semua yang tersedia ({{ availableCount() }})
+            </button>
+          }
+        </div>
+      }
+
+      <!-- Hidden print area untuk reprint dari riwayat -->
+      @if (reprintItems().length > 0) {
+        <div id="reprint-area" class="reprint-area">
+          @for (item of reprintItems(); track item.token) {
+            <div class="qr-card">
+              <img [src]="item.qrDataUrl" [alt]="item.token" class="qr-img" />
+              <div class="qr-token">{{ item.token }}</div>
+              <div class="qr-url">{{ item.scanUrl }}</div>
+            </div>
+          }
+        </div>
       }
 
     </div>
   `,
   styles: [`
-    .qr-page { padding: 24px; max-width: 1100px }
+    .qr-page { padding: 20px; max-width: 1200px; margin: 0 auto }
 
     /* Header */
     .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; gap: 12px; flex-wrap: wrap }
@@ -218,30 +255,43 @@ interface QrListItem {
     .list-loading, .list-empty { color: #9ca3af; font-size: 13px; padding: 20px 0 }
     .list-table { background: white; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; margin-bottom: 10px }
     .list-head {
-      display: grid; grid-template-columns: 1fr 100px 160px;
+      display: grid; grid-template-columns: 28px 1fr 100px 160px;
       padding: 10px 16px; background: #f9fafb;
       border-bottom: 1px solid #e5e7eb;
       font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase;
     }
     .list-row {
-      display: grid; grid-template-columns: 1fr 100px 160px;
+      display: grid; grid-template-columns: 28px 1fr 100px 160px;
       padding: 10px 16px; border-bottom: 1px solid #f3f4f6; font-size: 13px;
+      align-items: center;
     }
     .list-row:last-child { border-bottom: none }
     .list-row:hover { background: #f9fafb }
+    .list-row.row-used { opacity: .6 }
+    .cb-wrap { display: flex; align-items: center }
+    .cb-wrap input[type=checkbox] { width: 15px; height: 15px; cursor: pointer; accent-color: #1a4d2e }
     .mono { font-family: monospace; font-size: 12px; font-weight: 600; color: #1a4d2e }
-    .badge { padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; display: inline-block; align-self: center }
+    .badge { padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; display: inline-block }
     .badge-free { background: #dcfce7; color: #15803d }
     .badge-used { background: #f3f4f6; color: #6b7280 }
     .date-cell { font-size: 12px; color: #6b7280 }
-    .list-total { font-size: 12px; color: #9ca3af; text-align: right }
+    .list-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 8px }
+    .list-total { font-size: 12px; color: #9ca3af }
+    .btn-select-all { background: none; border: none; font-size: 12px; color: #1a4d2e; cursor: pointer; text-decoration: underline; padding: 0 }
+    .reprint-btn { margin-left: 12px; padding: 5px 14px; font-size: 12px }
+
+    /* Reprint area — hidden on screen, shown on print */
+    .reprint-area { display: none }
 
     /* Print styles */
     @media print {
-      .qr-page > *:not(.qr-grid) { display: none !important }
-      .qr-grid { display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 0 }
+      .qr-page > *:not(#print-area):not(.reprint-area) { display: none !important }
+      #print-area, .reprint-area {
+        display: grid !important;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px; margin: 0;
+         }
       .qr-card { border: 1px solid #ccc; break-inside: avoid; cursor: default }
-      .qr-card.selected, .qr-card { display: block !important }
       .qr-check { display: none !important }
     }
   `],
@@ -252,36 +302,39 @@ export class QrComponent {
   genCount  = 5;
   genPrefix = 'SMBRBB';
 
-  readonly generating = signal(false);
-  readonly genError   = signal('');
-  readonly generated  = signal<QrItem[]>([]);
-
-  readonly listLoading = signal(false);
-  readonly tokenList   = signal<QrListItem[]>([]);
-  readonly listTotal   = signal(0);
+  readonly generating   = signal(false);
+  readonly genError     = signal('');
+  readonly generated    = signal<QrItem[]>([]);
+  readonly listLoading  = signal(false);
+  readonly tokenList    = signal<QrListItem[]>([]);
+  readonly listTotal    = signal(0);
+  readonly reprinting   = signal(false);
+  readonly reprintItems = signal<QrItem[]>([]);
 
   readonly selectedCount = computed(() =>
     this.generated().filter(x => x.selected).length
   );
 
-  constructor() {
-    this.loadList();
-  }
+  readonly selectedFromList = computed(() =>
+    this.tokenList().filter(x => !x.isUsed && x.selected)
+  );
+
+  readonly availableCount = computed(() =>
+    this.tokenList().filter(x => !x.isUsed).length
+  );
+
+  constructor() { this.loadList(); }
 
   async generate(): Promise<void> {
     if (this.genCount < 1 || this.genCount > 50) {
-      this.genError.set('Jumlah token harus antara 1–50');
+      this.genError.set('Jumlah token harus antara 1-50');
       return;
     }
     this.generating.set(true);
     this.genError.set('');
     try {
       const res = await this.api.generateQr(this.genCount, window.location.origin);
-      const items: QrItem[] = res.tokens.map(t => ({
-        ...t,
-        selected: true,
-      }));
-      this.generated.set(items);
+      this.generated.set(res.tokens.map(t => ({ ...t, selected: true })));
       await this.loadList();
     } catch (err: unknown) {
       const e = err as { error?: { message?: string } };
@@ -297,9 +350,7 @@ export class QrComponent {
       const res = await this.api.listQr({ limit: 100 });
       this.tokenList.set(res.data);
       this.listTotal.set(res.total);
-    } catch {
-      // ignore
-    } finally {
+    } catch { /* ignore */ } finally {
       this.listLoading.set(false);
     }
   }
@@ -310,13 +361,40 @@ export class QrComponent {
     );
   }
 
-  clearGenerated(): void {
-    this.generated.set([]);
+  toggleListSelect(item: QrListItem): void {
+    this.tokenList.update(list =>
+      list.map(x => x.token === item.token ? { ...x, selected: !x.selected } : x)
+    );
   }
 
-  printQr(): void {
-    window.print();
+  selectAllAvailable(): void {
+    this.tokenList.update(list =>
+      list.map(x => x.isUsed ? x : { ...x, selected: true })
+    );
   }
+
+  async reprintSelected(): Promise<void> {
+    const tokens = this.selectedFromList();
+    if (!tokens.length) return;
+    this.reprinting.set(true);
+    try {
+      const QRCode = await import('qrcode');
+      const items: QrItem[] = await Promise.all(
+        tokens.map(async t => {
+          const scanUrl   = `${window.location.origin}/scan/${t.token}`;
+          const qrDataUrl = await QRCode.toDataURL(scanUrl, { width: 300, margin: 2 });
+          return { token: t.token, scanUrl, qrDataUrl, selected: true };
+        })
+      );
+      this.reprintItems.set(items);
+      setTimeout(() => window.print(), 100);
+    } finally {
+      this.reprinting.set(false);
+    }
+  }
+
+  clearGenerated(): void { this.generated.set([]); }
+  printQr(): void { window.print(); }
 
   formatDate(iso: string): string {
     return new Date(iso).toLocaleDateString('id-ID', {

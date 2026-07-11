@@ -6,6 +6,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
+import { environment } from '@env/environment';
 
 // ── Types (mirror dari Encore API) ────────────────────────────
 
@@ -103,7 +104,7 @@ export interface PresignedUploadResponse {
   expiresIn: number;
 }
 
-const BASE = '/api';
+const BASE = `${environment.apiBase}/api`;
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
@@ -123,15 +124,29 @@ export class ApiService {
     );
   }
 
+  getLaporanById(id: string): Promise<LahanInfo> {
+    return firstValueFrom(
+      this.http.get<LahanInfo>(`${BASE}/laporan/${id}`)
+    );
+  }
+
+  getPhotoViewUrl(key: string): Promise<{ url: string }> {
+    return firstValueFrom(
+      this.http.get<{ url: string }>(`${BASE}/upload/view/${encodeURIComponent(key)}`)
+    );
+  }
+
   listLaporan(params?: {
     status?: string;
+    zonaTipe?: string;
     limit?: number;
     offset?: number;
   }): Promise<ListLaporanResponse> {
     let httpParams = new HttpParams();
-    if (params?.status) httpParams = httpParams.set('status', params.status);
-    if (params?.limit)  httpParams = httpParams.set('limit', params.limit);
-    if (params?.offset) httpParams = httpParams.set('offset', params.offset);
+    if (params?.status)    httpParams = httpParams.set('status', params.status);
+    if (params?.zonaTipe)  httpParams = httpParams.set('zonaTipe', params.zonaTipe);
+    if (params?.limit)     httpParams = httpParams.set('limit', params.limit);
+    if (params?.offset)    httpParams = httpParams.set('offset', params.offset);
 
     return firstValueFrom(
       this.http.get<ListLaporanResponse>(`${BASE}/laporan`, {
@@ -201,6 +216,26 @@ export class ApiService {
     });
 
     return publicUrl;
+  }
+
+  getZonaGeoJSON(): Promise<{
+    type: string;
+    features: Array<{
+      type: string;
+      geometry: { type: string; coordinates: unknown };
+      properties: { nama: string; tipe: string; keterangan: string | null };
+    }>;
+  }> {
+    return firstValueFrom(
+      this.http.get<{
+        type: string;
+        features: Array<{
+          type: string;
+          geometry: { type: string; coordinates: unknown };
+          properties: { nama: string; tipe: string; keterangan: string | null };
+        }>;
+      }>(`${BASE}/zona/geojson`)
+    );
   }
 
   // ── QR ─────────────────────────────────────────────────────

@@ -150,7 +150,7 @@ interface GpsResult {
                 <span class="photo-rm" (click)="fotoPanorama = null">✕</span>
               </div>
             }
-            <input #panoramaInput type="file" accept="image/*" capture="environment" hidden (change)="onPhotoSelected($event, 'panorama')"/>
+            <input #panoramaInput id="panoramaInput" type="file" accept="image/*" hidden (change)="onPhotoSelected($event, 'panorama')"/>
           </div>
 
           <div class="field-group">
@@ -166,7 +166,7 @@ interface GpsResult {
                 <span class="photo-rm" (click)="fotoDetail = null">✕</span>
               </div>
             }
-            <input #detailInput type="file" accept="image/*" capture="environment" hidden (change)="onPhotoSelected($event, 'detail')"/>
+            <input #detailInput id="detailInput" type="file" accept="image/*" hidden (change)="onPhotoSelected($event, 'detail')"/>
           </div>
 
           <hr/>

@@ -56,12 +56,13 @@ import { AuthService } from '@core/services/auth.service';
   `,
   styles: [`
     .login-wrap {
-      min-height: 100vh;
+      height: 100%;
       background: #f0fdf4;
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 20px;
+      box-sizing: border-box;
     }
     .login-card {
       background: white;
