@@ -363,7 +363,10 @@ export class DashboardComponent implements OnInit {
         'Tanggal Submit':    new Date(l.createdAt).toLocaleDateString('id-ID'),
       }));
 
-      const XLSX = await import('xlsx');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const xlsxMod = await import('xlsx');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const XLSX = (xlsxMod as any).default ?? xlsxMod;
       const ws   = XLSX.utils.json_to_sheet(rows);
       const wb   = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Laporan Lahan');

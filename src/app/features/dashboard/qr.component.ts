@@ -378,7 +378,10 @@ export class QrComponent {
     if (!tokens.length) return;
     this.reprinting.set(true);
     try {
-      const QRCode = await import('qrcode');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const qrMod = await import('qrcode');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const QRCode = (qrMod as any).default ?? qrMod;
       const items: QrItem[] = await Promise.all(
         tokens.map(async t => {
           const scanUrl   = `${window.location.origin}/scan/${t.token}`;
