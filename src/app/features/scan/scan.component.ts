@@ -226,7 +226,7 @@ export class ScanComponent implements OnInit {
 
   // ── Actions ────────────────────────────────────────────────
   goToForm(): void {
-    this.router.navigate(['/laporan', this.token()]);
+    this.router.navigate(['/form', this.token()]);
   }
 
   async verifyNik(): Promise<void> {
@@ -236,7 +236,7 @@ export class ScanComponent implements OnInit {
     try {
       await this.api.verifyNik(this.token(), this.nikInput);
       // NIK verified — navigate to update form
-      this.router.navigate(['/laporan', this.token()], {
+      this.router.navigate(['/form', this.token()], {
         queryParams: { edit: '1' }
       });
     } catch (err: unknown) {
