@@ -8,6 +8,9 @@ import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
+import { environment } from '@env/environment';
+
+const AUTH_BASE = `${environment.apiBase}/api/auth`;
 
 export interface AuthUser {
   id: string;
@@ -72,7 +75,7 @@ export class AuthService {
   async login(email: string, password: string): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const raw = await firstValueFrom(
-      this.http.post<any>('/api/auth/login', { email, password })
+      this.http.post<any>(`${AUTH_BASE}/login`, { email, password })
     );
 
     if (!raw) throw new Error('Login gagal');
@@ -96,7 +99,7 @@ export class AuthService {
     if (this._refreshToken) {
       try {
         await firstValueFrom(
-          this.http.post('/api/auth/logout', { refreshToken: this._refreshToken })
+          this.http.post(`${AUTH_BASE}/logout`, { refreshToken: this._refreshToken })
         );
       } catch { /* ignore */ }
     }
@@ -110,7 +113,7 @@ export class AuthService {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const raw = await firstValueFrom(
-        this.http.post<any>('/api/auth/refresh', { refreshToken: this._refreshToken })
+        this.http.post<any>(`${AUTH_BASE}/refresh`, { refreshToken: this._refreshToken })
       );
       if (!raw) return null;
       const accessToken: string = raw['accessToken'] ?? raw['access_token'];
