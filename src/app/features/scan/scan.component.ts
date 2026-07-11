@@ -1,4 +1,5 @@
 import { Component, inject, input, signal, computed, OnInit } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ApiService, LahanInfo } from '@core/services/api.service';
 
@@ -23,6 +24,7 @@ const STATUS_CLASS: Record<string, string> = {
 @Component({
   selector: 'app-scan',
   standalone: true,
+  imports: [FormsModule],
   template: `
     <div class="page">
       <!-- Header -->
@@ -56,9 +58,38 @@ const STATUS_CLASS: Record<string, string> = {
             <div class="stat"><div class="stat-l">ID</div><div class="stat-v mono">{{ lahan()!.lahanId }}</div></div>
           </div>
           <div class="meta">📅 {{ formatDate(lahan()!.updatedAt) }}</div>
-          <button class="btn btn-primary" (click)="goToForm()">
-            Perbarui Data Lahan →
-          </button>
+
+          @if (!showNikVerify()) {
+            <button class="btn btn-primary" (click)="showNikVerify.set(true)">
+              Perbarui Data Lahan →
+            </button>
+          } @else {
+            <!-- NIK Verification -->
+            <div class="nik-verify">
+              <div class="nik-title">🔒 Verifikasi Identitas</div>
+              <div class="nik-desc">Masukkan NIK Anda untuk melanjutkan</div>
+              <input
+                type="text"
+                inputmode="numeric"
+                maxlength="16"
+                [(ngModel)]="nikInput"
+                placeholder="16 digit NIK"
+                class="nik-input"
+                (keyup.enter)="verifyNik()"
+              />
+              @if (nikError()) {
+                <div class="nik-error">{{ nikError() }}</div>
+              }
+              <div class="nik-actions">
+                <button class="btn btn-cancel" (click)="showNikVerify.set(false); nikError.set('')">
+                  Batal
+                </button>
+                <button class="btn btn-primary" (click)="verifyNik()" [disabled]="nikInput.length < 16">
+                  Verifikasi
+                </button>
+              </div>
+            </div>
+          }
         </div>
         <div class="info-box info-green">
           ✅ Lahan terdata dalam Kemitraan Konservasi SM BRBB
@@ -129,7 +160,9 @@ const STATUS_CLASS: Record<string, string> = {
     .meta { font-size: 11px; color: #9ca3af; background: #f9fafb; border-radius: 5px; padding: 5px 8px; margin-bottom: 12px }
     .btn { border-radius: 8px; padding: 11px; font-size: 13px; font-weight: 700; width: 100%; border: none; cursor: pointer }
     .btn-primary { background: #1a4d2e; color: white }
+    .btn-primary:disabled { background: #9ca3af; cursor: not-allowed }
     .btn-success { background: #22c55e; color: white }
+    .btn-cancel { background: #f3f4f6; color: #374151; width: auto; padding: 10px 16px }
     .empty-icon { font-size: 48px; margin-bottom: 12px }
     .empty-title { font-size: 17px; font-weight: 800; color: #1f2937; margin-bottom: 8px }
     .empty-desc { font-size: 13px; color: #6b7280; line-height: 1.6; margin-bottom: 20px }
@@ -139,19 +172,36 @@ const STATUS_CLASS: Record<string, string> = {
     .token-chip {
       text-align: center; font-family: monospace; font-size: 11px;
       color: #9ca3af; background: #f9fafb; border-radius: 5px;
-      padding: 4px 10px; display: inline-block; margin: 0 auto; display: block;
+      padding: 4px 10px; display: block;
     }
+    /* NIK Verification */
+    .nik-verify { border-top: 1px solid #e5e7eb; padding-top: 12px; margin-top: 4px }
+    .nik-title { font-size: 13px; font-weight: 700; color: #1f2937; margin-bottom: 2px }
+    .nik-desc { font-size: 11px; color: #9ca3af; margin-bottom: 10px }
+    .nik-input {
+      width: 100%; padding: 10px 12px; border: 1.5px solid #e5e7eb;
+      border-radius: 8px; font-size: 15px; font-family: monospace;
+      letter-spacing: 1px; box-sizing: border-box; margin-bottom: 6px;
+      outline: none;
+    }
+    .nik-input:focus { border-color: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,.12) }
+    .nik-error { font-size: 12px; color: #dc2626; background: #fee2e2; border-radius: 6px; padding: 7px 10px; margin-bottom: 8px }
+    .nik-actions { display: flex; gap: 8px; justify-content: flex-end }
+    .nik-actions .btn-primary { width: auto; padding: 10px 20px }
   `],
 })
 export class ScanComponent implements OnInit {
   private readonly api    = inject(ApiService);
   private readonly router = inject(Router);
 
-  // Route param via withComponentInputBinding()
   readonly token = input.required<string>();
 
-  readonly state = signal<ScanState>('loading');
-  readonly lahan = signal<LahanInfo | null>(null);
+  readonly state        = signal<ScanState>('loading');
+  readonly lahan        = signal<LahanInfo | null>(null);
+  readonly showNikVerify = signal(false);
+  readonly nikError     = signal('');
+
+  nikInput = '';
 
   readonly statusLabel = computed(() =>
     STATUS_LABEL[this.lahan()?.status ?? ''] ?? this.lahan()?.status ?? ''
@@ -171,6 +221,16 @@ export class ScanComponent implements OnInit {
       }
     } catch {
       this.state.set('error');
+    }
+  }
+
+  verifyNik(): void {
+    const entered = this.nikInput.trim();
+    const stored  = this.lahan()?.nik ?? '';
+    if (entered === stored) {
+      this.goToForm();
+    } else {
+      this.nikError.set('NIK tidak sesuai. Pastikan NIK yang dimasukkan benar.');
     }
   }
 
