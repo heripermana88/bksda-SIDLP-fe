@@ -263,7 +263,7 @@ export class ApiService {
       this.http.get<{
         data: Array<{ token: string; isUsed: boolean; createdAt: string }>;
         total: number;
-      }>(`${BASE}/qr/list`, { params: httpParams })
+      }>(`${BASE}/qr`, { params: httpParams })
     );
   }
 }
