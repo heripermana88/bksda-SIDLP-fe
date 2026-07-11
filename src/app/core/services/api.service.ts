@@ -104,7 +104,7 @@ export interface PresignedUploadResponse {
   expiresIn: number;
 }
 
-const BASE = `${environment.apiBase}/api`;
+const BASE = environment.apiBase || '/api';
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
@@ -262,8 +262,4 @@ export class ApiService {
     return firstValueFrom(
       this.http.get<{
         data: Array<{ token: string; isUsed: boolean; createdAt: string }>;
-        total: number;
-      }>(`${BASE}/qr`, { params: httpParams })
-    );
-  }
-}
+        total

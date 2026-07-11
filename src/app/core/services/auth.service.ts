@@ -10,7 +10,7 @@ import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '@env/environment';
 
-const AUTH_BASE = `${environment.apiBase}/api/auth`;
+const AUTH_BASE = `${environment.apiBase || '/api'}/auth`;
 
 export interface AuthUser {
   id: string;
