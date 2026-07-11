@@ -84,8 +84,8 @@ const STATUS_CLASS: Record<string, string> = {
                 <button class="btn btn-cancel" (click)="showNikVerify.set(false); nikError.set('')">
                   Batal
                 </button>
-                <button class="btn btn-primary" (click)="verifyNik()" [disabled]="nikInput.length < 16">
-                  Verifikasi
+                <button class="btn btn-primary" (click)="verifyNik()" [disabled]="nikInput.length < 16 || verifying()">
+                  {{ verifying() ? 'Memeriksa...' : 'Verifikasi' }}
                 </button>
               </div>
             </div>
