@@ -262,4 +262,8 @@ export class ApiService {
     return firstValueFrom(
       this.http.get<{
         data: Array<{ token: string; isUsed: boolean; createdAt: string }>;
-        total
+        total: number;
+      }>(`${BASE}/qr/list`, { params: httpParams })
+    );
+  }
+}

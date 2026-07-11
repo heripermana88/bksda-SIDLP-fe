@@ -12,7 +12,7 @@ import { NavbarComponent } from './shared/components/navbar.component';
       <router-outlet />
     </main>
     <footer class="footer">
-      &copy; {{ year }} <strong>Dona Perdana</strong> &nbsp;·&nbsp; SIDLP SM Bukit Rimbang Bukit Baling
+      &copy; {{ year }} <strong>Dona Perdana</strong> &nbsp;&middot;&nbsp; SIDLP SM Bukit Rimbang Bukit Baling
     </footer>
   `,
   styles: [`
