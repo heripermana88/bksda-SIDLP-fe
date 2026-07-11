@@ -136,7 +136,10 @@ export class PetaComponent implements OnDestroy {
   }
 
   private async initMap(): Promise<void> {
-    const L = await import('leaflet');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const leafletMod = await import('leaflet');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const L = (leafletMod as any).default ?? leafletMod;
 
     const mapEl = this.elRef.nativeElement.querySelector('.map-container') as HTMLElement;
 
