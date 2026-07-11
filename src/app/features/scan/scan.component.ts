@@ -170,4 +170,92 @@ const STATUS_CLASS: Record<string, string> = {
     .info-green { background: #f0fdf4; color: #166534; border-left: 3px solid #22c55e }
     .info-blue  { background: #eff6ff; color: #1e40af; border-left: 3px solid #3b82f6; text-align: center }
     .token-chip {
-      text-align:
+      text-align: center; font-size: 10px; color: #d1d5db;
+      font-family: monospace; padding: 8px; letter-spacing: 1px;
+    }
+    .nik-verify { margin-top: 12px }
+    .nik-title { font-size: 14px; font-weight: 700; color: #1f2937; margin-bottom: 4px }
+    .nik-desc { font-size: 12px; color: #6b7280; margin-bottom: 10px }
+    .nik-input {
+      width: 100%; box-sizing: border-box;
+      border: 1.5px solid #d1d5db; border-radius: 8px;
+      padding: 10px 12px; font-size: 15px; letter-spacing: 2px;
+      outline: none; margin-bottom: 8px;
+    }
+    .nik-input:focus { border-color: #1a4d2e }
+    .nik-error { color: #dc2626; font-size: 12px; margin-bottom: 8px }
+    .nik-actions { display: flex; gap: 8px; justify-content: flex-end }
+  `]
+})
+export class ScanComponent implements OnInit {
+  private readonly api    = inject(ApiService);
+  private readonly router = inject(Router);
+
+  readonly token = input.required<string>();
+
+  // ── State ──────────────────────────────────────────────────
+  state         = signal<ScanState>('loading');
+  lahan         = signal<LahanInfo | null>(null);
+  showNikVerify = signal(false);
+  nikError      = signal('');
+  verifying     = signal(false);
+  nikInput      = '';
+
+  // ── Computed ───────────────────────────────────────────────
+  statusLabel = computed(() =>
+    STATUS_LABEL[this.lahan()?.status ?? ''] ?? this.lahan()?.status ?? ''
+  );
+  statusClass = computed(() =>
+    STATUS_CLASS[this.lahan()?.status ?? ''] ?? ''
+  );
+
+  // ── Lifecycle ──────────────────────────────────────────────
+  async ngOnInit(): Promise<void> {
+    try {
+      const res = await this.api.getByToken(this.token());
+      if (res.registered && res.lahan) {
+        this.lahan.set(res.lahan);
+        this.state.set('registered');
+      } else {
+        this.state.set('unregistered');
+      }
+    } catch {
+      this.state.set('error');
+    }
+  }
+
+  // ── Actions ────────────────────────────────────────────────
+  goToForm(): void {
+    this.router.navigate(['/laporan', this.token()]);
+  }
+
+  async verifyNik(): Promise<void> {
+    if (this.nikInput.length < 16 || this.verifying()) return;
+    this.verifying.set(true);
+    this.nikError.set('');
+    try {
+      await this.api.verifyNik(this.token(), this.nikInput);
+      // NIK verified — navigate to update form
+      this.router.navigate(['/laporan', this.token()], {
+        queryParams: { edit: '1' }
+      });
+    } catch (err: unknown) {
+      const status = (err as { status?: number })?.status;
+      if (status === 401 || status === 403) {
+        this.nikError.set('NIK tidak sesuai. Periksa kembali NIK Anda.');
+      } else {
+        this.nikError.set('Gagal verifikasi. Coba lagi.');
+      }
+    } finally {
+      this.verifying.set(false);
+    }
+  }
+
+  // ── Helpers ────────────────────────────────────────────────
+  formatDate(d: string | null | undefined): string {
+    if (!d) return '—';
+    return new Date(d).toLocaleDateString('id-ID', {
+      day: '2-digit', month: 'long', year: 'numeric'
+    });
+  }
+}
