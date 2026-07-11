@@ -272,4 +272,15 @@ export class ApiService {
       this.http.post<{ verified: boolean }>(`${BASE}/lahan/${token}/verify-nik`, { nik })
     );
   }
+
+  importZona(features: Array<{
+    nama: string;
+    tipe: string;
+    keterangan?: string | null;
+    geometry: unknown;
+  }>): Promise<{ imported: number; message: string }> {
+    return firstValueFrom(
+      this.http.post<{ imported: number; message: string }>(`${BASE}/zona/import`, { features })
+    );
+  }
 }
