@@ -19,13 +19,12 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 const ZONA_STYLE: Record<string, { color: string; fillColor: string }> = {
-  kemitraan:    { color: '#15803d', fillColor: '#22c55e' },
-  penyangga:    { color: '#9a3412', fillColor: '#f97316' },
-  inti:         { color: '#991b1b', fillColor: '#ef4444' },
-  rehabilitasi: { color: '#6b21a8', fillColor: '#a855f7' },
+  inti:         { color: '#b91c1c', fillColor: '#ef4444' },   // Merah
+  khusus:       { color: '#374151', fillColor: '#9ca3af' },   // Abu-abu
+  rehabilitasi: { color: '#0369a1', fillColor: '#7dd3fc' },   // Biru muda
 };
 
-const TIPE_OPTIONS = ['kemitraan', 'penyangga', 'inti', 'rehabilitasi'];
+const TIPE_OPTIONS = ['inti', 'khusus', 'rehabilitasi'];
 
 interface ParsedFeature {
   nama: string;
@@ -273,10 +272,9 @@ export class PetaComponent implements OnDestroy {
   ];
 
   readonly zonaLegend = [
-    { label: 'Kemitraan',    color: '#22c55e' },
-    { label: 'Penyangga',    color: '#f97316' },
-    { label: 'Inti',         color: '#ef4444' },
-    { label: 'Rehabilitasi', color: '#a855f7' },
+    { label: 'Blok Inti',         color: '#ef4444' },
+    { label: 'Blok Khusus',       color: '#9ca3af' },
+    { label: 'Blok Rehabilitasi', color: '#7dd3fc' },
   ];
 
   constructor() {
@@ -549,9 +547,9 @@ export class PetaComponent implements OnDestroy {
   private normalizeTipe(raw: string): string {
     const v = String(raw).toLowerCase().trim();
     if (v.includes('inti'))          return 'inti';
-    if (v.includes('penyangga'))     return 'penyangga';
     if (v.includes('rehabilitasi'))  return 'rehabilitasi';
-    return 'kemitraan';
+    if (v.includes('khusus'))        return 'khusus';
+    return 'khusus'; // default untuk blok yang tidak dikenali
   }
 
   // ── Coordinate / Projection Helpers ──────────────────────────
