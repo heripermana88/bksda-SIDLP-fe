@@ -20,11 +20,14 @@ const STATUS_COLOR: Record<string, string> = {
 
 const ZONA_STYLE: Record<string, { color: string; fillColor: string }> = {
   inti:         { color: '#b91c1c', fillColor: '#ef4444' },   // Merah
-  khusus:       { color: '#374151', fillColor: '#9ca3af' },   // Abu-abu
+  perlindungan: { color: '#15803d', fillColor: '#22c55e' },   // Hijau
+  pemanfaatan:  { color: '#a16207', fillColor: '#eab308' },   // Kuning
+  religi:       { color: '#6b21a8', fillColor: '#a855f7' },   // Ungu
   rehabilitasi: { color: '#0369a1', fillColor: '#7dd3fc' },   // Biru muda
+  khusus:       { color: '#374151', fillColor: '#9ca3af' },   // Abu-abu
 };
 
-const TIPE_OPTIONS = ['inti', 'khusus', 'rehabilitasi'];
+const TIPE_OPTIONS = ['inti', 'perlindungan', 'pemanfaatan', 'religi', 'rehabilitasi', 'khusus'];
 
 interface ParsedFeature {
   nama: string;
@@ -126,11 +129,12 @@ interface ParsedFeature {
                     <div class="f-idx">{{ i + 1 }}</div>
                     <div class="f-fields">
                       <input class="f-input" [(ngModel)]="f.nama" placeholder="Nama zona" />
-                      <select class="f-select" [(ngModel)]="f.tipe">
+                      <input class="f-input" [(ngModel)]="f.tipe" list="tipeOptionsList" placeholder="Tipe zona" />
+                      <datalist id="tipeOptionsList">
                         @for (t of tipeOptions; track t) {
                           <option [value]="t">{{ t }}</option>
                         }
-                      </select>
+                      </datalist>
                       <input class="f-input" [(ngModel)]="f.keterangan" placeholder="Keterangan (opsional)" />
                     </div>
                   </div>
@@ -273,8 +277,11 @@ export class PetaComponent implements OnDestroy {
 
   readonly zonaLegend = [
     { label: 'Blok Inti',         color: '#ef4444' },
-    { label: 'Blok Khusus',       color: '#9ca3af' },
+    { label: 'Blok Perlindungan', color: '#22c55e' },
+    { label: 'Blok Pemanfaatan',  color: '#eab308' },
+    { label: 'Blok Religi',       color: '#a855f7' },
     { label: 'Blok Rehabilitasi', color: '#7dd3fc' },
+    { label: 'Blok Khusus',       color: '#9ca3af' },
   ];
 
   constructor() {
@@ -305,11 +312,10 @@ export class PetaComponent implements OnDestroy {
       const geojson = await this.api.getZonaGeoJSON();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       this.zonaLayer = L.geoJSON(geojson as any, {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         style: (feature: any) => {
-          const tipe  = feature?.properties?.tipe ?? 'kemitraan';
-          const style = ZONA_STYLE[tipe] ?? ZONA_STYLE['kemitraan'];
-          return { color: style.color, fillColor: style.fillColor, weight: 2, opacity: .8, fillOpacity: .15, dashArray: tipe === 'inti' ? '6 4' : undefined };
+          const tipe  = feature?.properties?.tipe ?? 'khusus';
+          const style = ZONA_STYLE[tipe.toLowerCase()] ?? ZONA_STYLE['khusus'];
+          return { color: style.color, fillColor: style.fillColor, weight: 2, opacity: .8, fillOpacity: .15, dashArray: tipe.toLowerCase() === 'inti' ? '6 4' : undefined };
         },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         onEachFeature: (feature: any, layer: any) => {
@@ -550,9 +556,12 @@ export class PetaComponent implements OnDestroy {
   private normalizeTipe(raw: string): string {
     const v = String(raw).toLowerCase().trim();
     if (v.includes('inti'))          return 'inti';
+    if (v.includes('perlindungan'))  return 'perlindungan';
+    if (v.includes('pemanfaatan'))   return 'pemanfaatan';
+    if (v.includes('religi'))        return 'religi';
     if (v.includes('rehabilitasi'))  return 'rehabilitasi';
     if (v.includes('khusus'))        return 'khusus';
-    return 'khusus'; // default untuk blok yang tidak dikenali
+    return String(raw).trim(); // Jika tidak dikenali, simpan nama aslinya secara dinamis!
   }
 
   // ── Coordinate / Projection Helpers ──────────────────────────
