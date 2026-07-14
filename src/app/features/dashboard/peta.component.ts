@@ -282,7 +282,7 @@ export class PetaComponent implements OnDestroy {
 
     const mapEl = this.elRef.nativeElement.querySelector('.map-container') as HTMLElement;
 
-    this.map = L.map(mapEl, { center: [0.4167, 101.2167], zoom: 11, zoomControl: true });
+    this.map = L.map(mapEl, { center: [-0.05, 100.85], zoom: 10, zoomControl: true });
     setTimeout(() => this.map?.invalidateSize(), 100);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
