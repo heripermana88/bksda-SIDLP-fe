@@ -96,15 +96,21 @@ interface ParsedFeature {
           @if (importStep() === 'pick') {
             <div class="modal-body">
               <p class="hint">Pilih file <strong>.geojson</strong> atau <strong>.shp</strong> (shapefile).</p>
-              <p class="hint-sub">Untuk .shp, pilih file .shp-nya — atribut akan bisa diatur di langkah berikutnya.</p>
+              <p class="hint-sub">
+                Untuk .shp: pilih semua file sekaligus (<strong>.shp + .dbf + .prj</strong>).<br>
+                File <code>.prj</code> digunakan untuk konversi proyeksi otomatis (UTM → WGS84).
+              </p>
 
               <div class="drop-area" (click)="fileInput.click()" (dragover)="$event.preventDefault()" (drop)="onDrop($event)">
                 <div class="drop-icon">📁</div>
                 <div class="drop-text">Klik atau drag file ke sini</div>
-                <div class="drop-sub">.geojson atau .shp</div>
+                <div class="drop-sub">.geojson &nbsp;|&nbsp; .shp + .dbf + .prj</div>
               </div>
-              <input #fileInput type="file" accept=".geojson,.shp" style="display:none" (change)="onFileSelect($event)" />
+              <input #fileInput type="file" accept=".geojson,.shp,.dbf,.prj" multiple style="display:none" (change)="onFileSelect($event)" />
 
+              @if (reprojectInfo()) {
+                <div class="info">ℹ️ {{ reprojectInfo() }}</div>
+              }
               @if (parseError()) {
                 <div class="err">{{ parseError() }}</div>
               }
@@ -215,7 +221,8 @@ interface ParsedFeature {
     .drop-icon { font-size: 36px; margin-bottom: 8px }
     .drop-text { font-size: 14px; font-weight: 700; color: #374151 }
     .drop-sub { font-size: 12px; color: #9ca3af; margin-top: 4px }
-    .err { background: #fee2e2; color: #991b1b; padding: 10px 12px; border-radius: 8px; font-size: 12px; margin-top: 12px }
+    .err  { background: #fee2e2; color: #991b1b; padding: 10px 12px; border-radius: 8px; font-size: 12px; margin-top: 12px }
+    .info { background: #eff6ff; color: #1e40af; padding: 10px 12px; border-radius: 8px; font-size: 12px; margin-top: 12px }
     .feature-list { display: flex; flex-direction: column; gap: 10px }
     .feature-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px; background: #f9fafb; border-radius: 8px }
     .f-idx { width: 24px; height: 24px; background: #1a4d2e; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; margin-top: 6px }
@@ -252,6 +259,7 @@ export class PetaComponent implements OnDestroy {
   importStep     = signal<'pick' | 'map' | 'done'>('pick');
   parsedFeatures = signal<ParsedFeature[]>([]);
   parseError     = signal('');
+  reprojectInfo  = signal('');
   importError    = signal('');
   importResult   = signal('');
   importing      = signal(false);
@@ -368,6 +376,7 @@ export class PetaComponent implements OnDestroy {
     this.importStep.set('pick');
     this.parsedFeatures.set([]);
     this.parseError.set('');
+    this.reprojectInfo.set('');
     this.importError.set('');
     this.importResult.set('');
     this.showImport.set(true);
@@ -383,26 +392,36 @@ export class PetaComponent implements OnDestroy {
 
   onDrop(e: DragEvent): void {
     e.preventDefault();
-    const file = e.dataTransfer?.files?.[0];
-    if (file) this.processFile(file);
+    const files = Array.from(e.dataTransfer?.files ?? []);
+    if (files.length) this.processFiles(files);
   }
 
   onFileSelect(e: Event): void {
-    const file = (e.target as HTMLInputElement).files?.[0];
-    if (file) this.processFile(file);
+    const files = Array.from((e.target as HTMLInputElement).files ?? []);
+    if (files.length) this.processFiles(files);
   }
 
-  private async processFile(file: File): Promise<void> {
+  private async processFiles(files: File[]): Promise<void> {
     this.parseError.set('');
-    const ext = file.name.split('.').pop()?.toLowerCase();
+    this.reprojectInfo.set('');
+
+    const byExt = (ext: string) =>
+      files.find(f => f.name.toLowerCase().endsWith('.' + ext));
+
+    const geojsonFile = files.find(f => /\.(geojson|json)$/i.test(f.name));
+    const shpFile     = byExt('shp');
+    const dbfFile     = byExt('dbf');
+    const prjFile     = byExt('prj');
 
     try {
-      if (ext === 'geojson' || ext === 'json') {
-        await this.parseGeoJSON(file);
-      } else if (ext === 'shp') {
-        await this.parseShapefile(file);
+      if (geojsonFile) {
+        await this.parseGeoJSON(geojsonFile);
+      } else if (shpFile) {
+        await this.parseShapefile(shpFile, dbfFile, prjFile);
       } else {
-        this.parseError.set('Format tidak didukung. Gunakan .geojson atau .shp');
+        this.parseError.set(
+          'Format tidak didukung. Pilih file .geojson atau .shp (+ .dbf, .prj)'
+        );
       }
     } catch (err: unknown) {
       this.parseError.set('Gagal membaca file: ' + String(err));
@@ -445,26 +464,73 @@ export class PetaComponent implements OnDestroy {
     this.importStep.set('map');
   }
 
-  private async parseShapefile(file: File): Promise<void> {
+  private async parseShapefile(
+    shpFile: File,
+    dbfFile?: File,
+    prjFile?: File
+  ): Promise<void> {
+    // ── Load shapefile library ─────────────────────────────────
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const shpMod = await import('shapefile' as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const shapefile = (shpMod as any).default ?? shpMod;
 
-    const buffer = await file.arrayBuffer();
-    const source = await shapefile.open(buffer);
+    // ── Load proj4 library ────────────────────────────────────
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const proj4Mod = await import('proj4' as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const proj4 = (proj4Mod as any).default ?? proj4Mod;
+
+    // ── Read buffers ──────────────────────────────────────────
+    const shpBuffer = await shpFile.arrayBuffer();
+    const dbfBuffer = dbfFile ? await dbfFile.arrayBuffer() : undefined;
+
+    // ── Read .prj for projection string (WKT) ─────────────────
+    let fromProj: string | null = null;
+    if (prjFile) {
+      fromProj = (await prjFile.text()).trim();
+    }
+
+    // ── Open shapefile (with optional .dbf for attributes) ────
+    const source = dbfBuffer
+      ? await shapefile.open(shpBuffer, dbfBuffer)
+      : await shapefile.open(shpBuffer);
 
     const features: ParsedFeature[] = [];
+    let needsReprojMsg = '';
     let i = 0;
+
     // eslint-disable-next-line no-constant-condition
     while (true) {
       const result = await source.read();
       if (result.done) break;
       const f = result.value;
+
+      let geometry = f.geometry;
+
+      // ── Auto-reproject if coordinates are not WGS84 ────────
+      if (geometry) {
+        const sample = this.getSampleCoord(geometry);
+        if (sample && !this.isWGS84(sample)) {
+          const projStr = fromProj ?? this.guessUTMProjString(sample[0], sample[1]);
+          try {
+            geometry = this.reprojectGeometry(proj4, projStr, geometry);
+            if (!needsReprojMsg) {
+              needsReprojMsg = fromProj
+                ? 'Koordinat dikonversi dari proyeksi .prj ke WGS84.'
+                : `Koordinat UTM terdeteksi — dikonversi otomatis ke WGS84 (zona: ${this.utmZoneLabel(sample[0], sample[1])}).`;
+            }
+          } catch {
+            needsReprojMsg = 'Peringatan: konversi proyeksi gagal, koordinat digunakan apa adanya.';
+          }
+        }
+      }
+
       features.push({
         nama:       f.properties?.nama ?? f.properties?.NAMA ?? f.properties?.name ?? `Zona ${i + 1}`,
         tipe:       this.normalizeTipe(f.properties?.tipe ?? f.properties?.TIPE ?? f.properties?.type ?? 'kemitraan'),
         keterangan: f.properties?.keterangan ?? f.properties?.KETERANGAN ?? '',
-        geometry:   f.geometry,
+        geometry,
         rawProps:   f.properties ?? {},
       });
       i++;
@@ -475,6 +541,7 @@ export class PetaComponent implements OnDestroy {
       return;
     }
 
+    if (needsReprojMsg) this.reprojectInfo.set(needsReprojMsg);
     this.parsedFeatures.set(features);
     this.importStep.set('map');
   }
@@ -485,6 +552,90 @@ export class PetaComponent implements OnDestroy {
     if (v.includes('penyangga'))     return 'penyangga';
     if (v.includes('rehabilitasi'))  return 'rehabilitasi';
     return 'kemitraan';
+  }
+
+  // ── Coordinate / Projection Helpers ──────────────────────────
+
+  /**
+   * Ambil satu koordinat sampel dari GeoJSON geometry (titik terdalam pertama).
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private getSampleCoord(geometry: any): [number, number] | null {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const drill = (arr: any): [number, number] => {
+        if (typeof arr[0] === 'number') return arr as [number, number];
+        return drill(arr[0]);
+      };
+      return drill(geometry.coordinates);
+    } catch { return null; }
+  }
+
+  /** Koordinat valid WGS84 jika |lon| ≤ 180 dan |lat| ≤ 90. */
+  private isWGS84([x, y]: [number, number]): boolean {
+    return Math.abs(x) <= 180 && Math.abs(y) <= 90;
+  }
+
+  /**
+   * Tebak proj4 string untuk UTM berdasarkan koordinat.
+   * Mencoba zona 44–55 (Asia Tenggara); default zone 47S (Sumatera).
+   */
+  private guessUTMProjString(x: number, y: number): string {
+    const isSouth = y > 5_000_000; // false northing 10.000.000 untuk selatan
+    const hemi    = isSouth ? '+south ' : '';
+
+    // Approx longitude untuk tiap zona — pilih zona yang hasilnya masuk Indonesia
+    for (let zone = 44; zone <= 55; zone++) {
+      const cm      = zone * 6 - 183;             // central meridian
+      const roughLon = cm + (x - 500_000) / 111_320; // perkiraan lon
+      if (roughLon >= 95 && roughLon <= 141) {    // batas Indonesia
+        return `+proj=utm +zone=${zone} ${hemi}+datum=WGS84 +units=m +no_defs`;
+      }
+    }
+    return `+proj=utm +zone=47 +south +datum=WGS84 +units=m +no_defs`;
+  }
+
+  /** Label zona UTM untuk info user. */
+  private utmZoneLabel(x: number, y: number): string {
+    const isSouth = y > 5_000_000;
+    for (let zone = 44; zone <= 55; zone++) {
+      const cm       = zone * 6 - 183;
+      const roughLon = cm + (x - 500_000) / 111_320;
+      if (roughLon >= 95 && roughLon <= 141) {
+        return `${zone}${isSouth ? 'S' : 'N'}`;
+      }
+    }
+    return '47S';
+  }
+
+  /**
+   * Reprojects semua koordinat dalam GeoJSON geometry dari fromProj ke WGS84.
+   * Mendukung: Point, MultiPoint, LineString, MultiLineString, Polygon, MultiPolygon.
+   */
+  private reprojectGeometry(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    proj4: any,
+    fromProj: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    geometry: any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ): any {
+    const toProj = 'WGS84';
+    const c  = (p: [number, number]): [number, number] => proj4(fromProj, toProj, p);
+    const rr = (ring: [number, number][]): [number, number][] => ring.map(c);
+
+    const g = JSON.parse(JSON.stringify(geometry)); // deep clone
+    switch (g.type) {
+      case 'Point':            g.coordinates = c(g.coordinates);               break;
+      case 'MultiPoint':
+      case 'LineString':       g.coordinates = g.coordinates.map(c);           break;
+      case 'MultiLineString':
+      case 'Polygon':          g.coordinates = g.coordinates.map(rr);          break;
+      case 'MultiPolygon':
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        g.coordinates = g.coordinates.map((poly: any) => poly.map(rr));        break;
+    }
+    return g;
   }
 
   async doImport(): Promise<void> {
