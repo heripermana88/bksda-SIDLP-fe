@@ -524,9 +524,12 @@ export class PetaComponent implements OnDestroy {
         }
       }
 
+      const rawNama = f.properties?.nama ?? f.properties?.NAMA ?? f.properties?.Name ?? f.properties?.name ?? `Zona ${i + 1}`;
+      const rawTipe = f.properties?.tipe ?? f.properties?.TIPE ?? f.properties?.type ?? rawNama;
+
       features.push({
-        nama:       f.properties?.nama ?? f.properties?.NAMA ?? f.properties?.name ?? `Zona ${i + 1}`,
-        tipe:       this.normalizeTipe(f.properties?.tipe ?? f.properties?.TIPE ?? f.properties?.type ?? 'kemitraan'),
+        nama:       rawNama,
+        tipe:       this.normalizeTipe(rawTipe),
         keterangan: f.properties?.keterangan ?? f.properties?.KETERANGAN ?? '',
         geometry,
         rawProps:   f.properties ?? {},
