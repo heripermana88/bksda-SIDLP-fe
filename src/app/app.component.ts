@@ -12,7 +12,9 @@ import { NavbarComponent } from './shared/components/navbar.component';
       <router-outlet />
     </main>
     <footer class="footer">
-      &copy; {{ year }} <strong>Dona Perdana</strong> &nbsp;&middot;&nbsp; SIDLP SM Bukit Rimbang Bukit Baling
+      &copy; {{ year }} <strong>bbksda_riau</strong>
+      &nbsp;&middot;&nbsp; <span class="dev">adont</span>
+      &nbsp;&middot;&nbsp; SIDLP SM Bukit Rimbang Bukit Baling
     </footer>
   `,
   styles: [`
@@ -34,8 +36,11 @@ import { NavbarComponent } from './shared/components/navbar.component';
       font-size: 11px;
       padding: 14px 20px;
       flex-shrink: 0;
+      position: relative;
     }
-    .footer strong { color: rgba(255,255,255,.8) }
+    .footer strong { color: rgba(255,255,255,.9); font-size: 13px }
+    .dev { color: rgba(255,255,255,.2); font-size: 7px }
+
   `],
 })
 export class AppComponent {
