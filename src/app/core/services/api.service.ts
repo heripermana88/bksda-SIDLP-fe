@@ -273,6 +273,17 @@ export class ApiService {
     );
   }
 
+  updateLaporan(token: string, data: {
+    nama: string; kelompokTani?: string; dusun: string; nomorHp?: string;
+    latitude?: number; longitude?: number; accuracyM?: number;
+    luasHa: number; jenisTanaman: string; tahunGarap: number; statusLahan: string;
+    fotoPanoramaUrl?: string; fotoDetailUrl?: string;
+  }): Promise<{ ok: boolean; updatedAt: string }> {
+    return firstValueFrom(
+      this.http.patch<{ ok: boolean; updatedAt: string }>(`${BASE}/laporan/${token}`, data)
+    );
+  }
+
   importZona(features: Array<{
     nama: string;
     tipe: string;
