@@ -119,9 +119,20 @@ interface GpsResult {
           }
           @if (gpsError()) {
             <div class="gps-error">
-              <div class="gps-error-title">⚠️ Akurasi GPS Buruk: {{ gpsError() }} m</div>
-              <p>Pindah ke area terbuka</p>
-              <button class="btn btn-danger" (click)="ambilGps()">Coba Lagi</button>
+              <div class="gps-error-title">⚠️ {{ gpsError() === -1 ? "GPS tidak dapat diakses" : "Akurasi GPS Buruk: ±" + gpsError() + " m" }}</div>
+              <p>Akurasi rendah karena tutupan hutan. Pindah ke area terbuka atau coba lagi.</p>
+              <div class="gps-btn-row">
+                <button class="btn btn-danger" (click)="ambilGps()">🔄 Coba Lagi ({{ gpsAttempts() }}x)</button>
+                @if (gpsAttempts() >= 2) {
+                  <button class="btn btn-secondary" (click)="skipGpsNew()" style="flex:1">Lewati GPS ⚠️</button>
+                }
+              </div>
+            </div>
+          }
+          @if (gpsSkipped()) {
+            <div class="gps-skip-warn">
+              ⚠️ GPS dilewati — koordinat tidak tersedia. Petugas akan melengkapi titik lokasi.
+              <span class="gps-retry" (click)="gpsSkipped.set(false); gpsAttempts.set(0)">Coba lagi</span>
             </div>
           }
           <div class="field-group">
@@ -339,13 +350,14 @@ export class FormContainerComponent implements OnInit {
   readonly gps          = signal<GpsResult | null>(null);
   readonly gpsLoading   = signal(false);
   readonly gpsError     = signal<number | null>(null);
+  readonly gpsAttempts  = signal(0);
+  readonly gpsSkipped   = signal(false);
   readonly luasHa       = signal(0);
   readonly jenisTanaman = signal('');
   readonly tahunGarap   = signal(new Date().getFullYear());
 
   readonly step2Valid = computed(() =>
-    (!!this.gps() || (this.isEditMode() && !!this.existingLat())) &&
-    this.gpsError() === null &&
+    (!!this.gps() || this.gpsSkipped() || (this.isEditMode() && !!this.existingLat())) &&
     this.luasHa() > 0 &&
     !!this.jenisTanaman() &&
     this.tahunGarap() >= 1970
@@ -407,12 +419,15 @@ export class FormContainerComponent implements OnInit {
     this.gpsLoading.set(true);
     this.gpsError.set(null);
     this.gps.set(null);
+    this.gpsAttempts.update(n => n + 1);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const acc = pos.coords.accuracy;
-        if (acc > 100) {
+        if (acc > 500) {
+          // > 500m = tolak, tapi catat percobaan
           this.gpsError.set(Math.round(acc));
         } else {
+          // Terima 0-500m, beri label akurasi
           this.gps.set({
             latitude: pos.coords.latitude, longitude: pos.coords.longitude,
             accuracyM: acc,
@@ -421,9 +436,17 @@ export class FormContainerComponent implements OnInit {
         }
         this.gpsLoading.set(false);
       },
-      () => { this.gpsLoading.set(false) },
+      () => {
+        this.gpsError.set(-1); // -1 = permission denied / timeout
+        this.gpsLoading.set(false);
+      },
       { enableHighAccuracy: true, timeout: 30_000, maximumAge: 0 }
     );
+  }
+
+  skipGpsNew(): void {
+    this.gpsSkipped.set(true);
+    this.gpsError.set(null);
   }
 
   skipGps(): void {
@@ -467,7 +490,7 @@ export class FormContainerComponent implements OnInit {
       if (this.fotoPanorama) panoramaUrl = await this.api.uploadPhoto(this.fotoPanorama, 'panorama');
       if (this.fotoDetail)   detailUrl   = await this.api.uploadPhoto(this.fotoDetail,   'detail');
 
-      const gps = this.gps();
+      const gps = this.gpsSkipped() ? null : this.gps();
 
       if (this.isEditMode()) {
         // ── UPDATE existing ──────────────────────────────────
@@ -497,7 +520,7 @@ export class FormContainerComponent implements OnInit {
         token: this.token(), nama: this.nama(), nik: this.nik(),
         kelompokTani: this.kelompokTani() || undefined, dusun: this.dusun(),
         nomorHp: this.nomorHp() || undefined,
-        latitude: gps!.latitude, longitude: gps!.longitude, accuracyM: gps!.accuracyM,
+        latitude: gps?.latitude ?? 0, longitude: gps?.longitude ?? 0, accuracyM: gps?.accuracyM ?? 0,
         luasHa: this.luasHa(), jenisTanaman: this.jenisTanaman(),
         tahunGarap: this.tahunGarap(), statusLahan: this.statusLahan(),
         fotoPanoramaUrl: panoramaUrl, fotoDetailUrl: detailUrl,
