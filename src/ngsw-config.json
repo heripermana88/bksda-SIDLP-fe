@@ -31,26 +31,41 @@
   "dataGroups": [
     {
       "name": "api-scan",
-      "urls": ["/api/lahan/by-token/**"],
+      "urls": ["/api/lahan/*"],
       "cacheConfig": {
         "strategy": "freshness",
-        "maxSize": 100,
-        "maxAge": "10m",
+        "maxSize": 200,
+        "maxAge": "30m",
+        "timeout": "5s"
+      }
+    },
+    {
+      "name": "api-laporan",
+      "urls": ["/api/laporan", "/api/laporan/**"],
+      "cacheConfig": {
+        "strategy": "freshness",
+        "maxSize": 50,
+        "maxAge": "5m",
         "timeout": "5s"
       }
     },
     {
       "name": "api-dashboard",
-      "urls": [
-        "/api/lahan/list",
-        "/api/lahan/stats",
-        "/api/lahan/map-points"
-      ],
+      "urls": ["/api/dashboard/stats", "/api/laporan/map"],
       "cacheConfig": {
         "strategy": "freshness",
-        "maxSize": 50,
+        "maxSize": 10,
         "maxAge": "2m",
         "timeout": "5s"
+      }
+    },
+    {
+      "name": "api-zona",
+      "urls": ["/api/zona/geojson"],
+      "cacheConfig": {
+        "strategy": "performance",
+        "maxSize": 5,
+        "maxAge": "7d"
       }
     }
   ]
